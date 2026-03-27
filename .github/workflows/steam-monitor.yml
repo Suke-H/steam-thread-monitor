@@ -14,12 +14,17 @@ jobs:
       - name: 投稿数を取得する
         id: fetch
         run: |
-          COUNT=$(curl -s \
+          HTML=$(curl -s \
             -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" \
-            "${{ vars.STEAM_THREAD_URL }}" \
-            | grep -oP 'Posts:\s*\K[0-9]+')
+            "${{ vars.STEAM_THREAD_URL }}")
+          echo "$HTML" | head -100
+          COUNT=$(echo "$HTML" | grep -oP 'Posts:\s*\K[0-9]+')
+          echo "取得した投稿数: $COUNT"
+          if [ -z "$COUNT" ]; then
+            echo "⚠️ 投稿数が取得できませんでした"
+            exit 1
+          fi
           echo "count=$COUNT" >> $GITHUB_OUTPUT
-          echo "現在の投稿数: $COUNT"
 
       - name: 前回の投稿数と比較する
         id: compare

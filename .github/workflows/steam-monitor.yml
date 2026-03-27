@@ -1,0 +1,50 @@
+# .github/workflows/steam-monitor.yml
+name: Steam Thread Monitor
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # 毎日UTC 0:00（日本時間 9:00）
+  workflow_dispatch:       # 手動実行も可能
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 投稿数を取得する
+        id: fetch
+        run: |
+          COUNT=$(curl -s \
+            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" \
+            "${{ vars.STEAM_THREAD_URL }}" \
+            | grep -oP 'Posts:\s*\K[0-9]+')
+          echo "count=$COUNT" >> $GITHUB_OUTPUT
+          echo "現在の投稿数: $COUNT"
+
+      - name: 前回の投稿数と比較する
+        id: compare
+        run: |
+          PREV="${{ vars.LAST_POST_COUNT }}"
+          CURR="${{ steps.fetch.outputs.count }}"
+          echo "前回: $PREV / 今回: $CURR"
+          if [ "$PREV" != "$CURR" ] && [ -n "$CURR" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 通知を送る (Discord Webhook)
+        if: steps.compare.outputs.changed == 'true'
+        run: |
+          curl -s -X POST "${{ secrets.DISCORD_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"content\": \"🔔 Steamスレッドの投稿数が増えました！ 現在: ${{ steps.fetch.outputs.count }} 件\\n${{ vars.STEAM_THREAD_URL }}\"}"
+
+      - name: 投稿数を保存する
+        if: steps.compare.outputs.changed == 'true'
+        run: |
+          curl -s -X PATCH \
+            -H "Authorization: token ${{ secrets.GH_PAT }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/variables/LAST_POST_COUNT" \
+            -d "{\"name\":\"LAST_POST_COUNT\",\"value\":\"${{ steps.fetch.outputs.count }}\"}"

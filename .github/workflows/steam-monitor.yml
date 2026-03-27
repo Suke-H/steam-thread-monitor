@@ -17,7 +17,7 @@ jobs:
           HTML=$(curl -s \
             -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" \
             "${{ vars.STEAM_THREAD_URL }}")
-          COUNT=$(echo "$HTML" | awk '/Date Posted:/{found=1} found && /Posts:/{match($0, /[0-9]+/); print substr($0, RSTART, RLENGTH); exit}')
+          COUNT=$(echo "$HTML" | grep -oP '(?<=class="topicstats_value">)[0-9]+' | head -1)
           echo "取得した投稿数: $COUNT"
           if [ -z "$COUNT" ]; then
             echo "⚠️ 投稿数が取得できませんでした"

@@ -54,14 +54,18 @@ jobs:
               -d "{\"content\": \"🔔 Steamスレッドの投稿数が増えました！ 現在: $COUNT 件\\n$URL\"}"
 
             # 投稿数を保存する（存在しない場合はPOSTで新規作成）
-            curl -s -X PUT \
+            RESPONSE=$(curl -s -X PUT \
               -H "Authorization: token ${{ secrets.GH_PAT }}" \
               -H "Accept: application/vnd.github+json" \
               "https://api.github.com/repos/${{ github.repository }}/actions/variables/$KEY" \
-              -d "{\"name\":\"$KEY\",\"value\":\"$COUNT\"}" \
-              || curl -s -X POST \
+              -d "{\"name\":\"$KEY\",\"value\":\"$COUNT\"}")
+            echo "PUT response: $RESPONSE"
+            if echo "$RESPONSE" | grep -q '"message"'; then
+              RESPONSE2=$(curl -s -X POST \
                 -H "Authorization: token ${{ secrets.GH_PAT }}" \
                 -H "Accept: application/vnd.github+json" \
                 "https://api.github.com/repos/${{ github.repository }}/actions/variables" \
-                -d "{\"name\":\"$KEY\",\"value\":\"$COUNT\"}"
+                -d "{\"name\":\"$KEY\",\"value\":\"$COUNT\"}")
+              echo "POST response: $RESPONSE2"
+            fi
           done

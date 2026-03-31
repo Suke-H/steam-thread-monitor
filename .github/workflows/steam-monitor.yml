@@ -29,9 +29,8 @@ jobs:
               continue
             fi
 
-            # URLからキーを生成（英数字のみ残す）
-            KEY=$(echo "$URL" | tr -cd '[:alnum:]')
-            KEY="LAST_POST_COUNT_${KEY: -30}"
+            # キー生成
+            KEY="LAST_POST_COUNT_$(echo "$URL" | grep -oP '[0-9]{18}')"
             echo "生成したキー: $KEY"
 
             # 前回の投稿数を取得する

@@ -49,10 +49,10 @@ jobs:
 
             echo "→ 変化あり、通知します"
 
-            # 通知を送る (Discord Webhook)
-            curl -s -X POST "${{ secrets.DISCORD_WEBHOOK_URL }}" \
-              -H "Content-Type: application/json" \
-              -d "{\"content\": \"🔔 Steamスレッドの投稿数が増えました！ 現在: $COUNT 件\\n$URL\"}"
+            # # 通知を送る (Discord Webhook)
+            # curl -s -X POST "${{ secrets.DISCORD_WEBHOOK_URL }}" \
+            #   -H "Content-Type: application/json" \
+            #   -d "{\"content\": \"🔔 Steamスレッドの投稿数が増えました！ 現在: $COUNT 件\\n$URL\"}"
 
             # 投稿数を保存する（存在しない場合はPOSTで新規作成）
             RESPONSE=$(curl -s --max-time 10 -X PATCH \

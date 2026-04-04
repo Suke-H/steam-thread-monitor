@@ -11,50 +11,73 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Fetch, compare, notify, and save post counts
+      - name: Fetch post counts
+        id: fetch
         run: |
           IFS=',' read -ra URLS <<< "${{ vars.STEAM_THREAD_URLS }}"
-          IFS=',' read -ra PREVS <<< "${{ vars.LAST_POST_COUNTS }}"
-          NEW_COUNTS=()
-
+          COUNTS=()
           for i in "${!URLS[@]}"; do
             URL="${URLS[$i]}"
-            PREV="${PREVS[$i]:-}"
-            echo "--- チェック中: $URL ---"
-
-            # 投稿数を取得する
+            echo "--- 取得中: $URL ---"
             HTML=$(curl -s \
               -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" \
               "$URL")
             COUNT=$(echo "$HTML" | grep -oP '(?<=class="topicstats_value">)[0-9]+' | head -1)
             echo "取得した投稿数: $COUNT"
-
             if [ -z "$COUNT" ]; then
               echo "⚠️ 投稿数が取得できませんでした: $URL"
-              NEW_COUNTS+=("${PREV}")
-              continue
+              COUNTS+=("0")
+            else
+              COUNTS+=("$COUNT")
             fi
+          done
+          COUNTS_STR=$(IFS=','; echo "${COUNTS[*]}")
+          echo "counts=$COUNTS_STR" >> $GITHUB_OUTPUT
 
-            echo "前回: $PREV / 今回: $COUNT"
-            NEW_COUNTS+=("$COUNT")
-
-            if [ "$PREV" = "$COUNT" ]; then
+      - name: Compare post counts
+        id: compare
+        run: |
+          IFS=',' read -ra COUNTS <<< "${{ steps.fetch.outputs.counts }}"
+          IFS=',' read -ra PREVS <<< "${{ vars.LAST_POST_COUNTS }}"
+          CHANGED_URLS=()
+          CHANGED_COUNTS=()
+          IFS=',' read -ra URLS <<< "${{ vars.STEAM_THREAD_URLS }}"
+          for i in "${!COUNTS[@]}"; do
+            COUNT="${COUNTS[$i]}"
+            PREV="${PREVS[$i]:-}"
+            URL="${URLS[$i]}"
+            echo "前回: $PREV / 今回: $COUNT ($URL)"
+            if [ "$PREV" != "$COUNT" ] && [ "$COUNT" != "0" ]; then
+              echo "→ 変化あり"
+              CHANGED_URLS+=("$URL")
+              CHANGED_COUNTS+=("$COUNT")
+            else
               echo "→ 変化なし"
-              continue
             fi
+          done
+          CHANGED_URLS_STR=$(IFS=','; echo "${CHANGED_URLS[*]}")
+          CHANGED_COUNTS_STR=$(IFS=','; echo "${CHANGED_COUNTS[*]}")
+          echo "changed_urls=$CHANGED_URLS_STR" >> $GITHUB_OUTPUT
+          echo "changed_counts=$CHANGED_COUNTS_STR" >> $GITHUB_OUTPUT
 
-            echo "→ 変化あり、通知します"
-
-            # 通知を送る (Discord Webhook)
+      - name: Notify
+        if: steps.compare.outputs.changed_urls != ''
+        run: |
+          IFS=',' read -ra URLS <<< "${{ steps.compare.outputs.changed_urls }}"
+          IFS=',' read -ra COUNTS <<< "${{ steps.compare.outputs.changed_counts }}"
+          for i in "${!URLS[@]}"; do
+            URL="${URLS[$i]}"
+            COUNT="${COUNTS[$i]}"
+            echo "→ 通知: $URL ($COUNT 件)"
             curl -s -X POST "${{ secrets.DISCORD_WEBHOOK_URL }}" \
               -H "Content-Type: application/json" \
               -d "{\"content\": \"🔔 Steamスレッドの投稿数が増えました！ 現在: $COUNT 件\\n$URL\"}"
           done
 
-          # 投稿数をまとめて保存する
-          NEW_COUNTS_STR=$(IFS=','; echo "${NEW_COUNTS[*]}")
+      - name: Save post counts
+        run: |
+          NEW_COUNTS_STR="${{ steps.fetch.outputs.counts }}"
           echo "保存する投稿数: $NEW_COUNTS_STR"
-
           RESPONSE=$(curl -s --max-time 10 -X PATCH \
             -H "Authorization: token ${{ secrets.GH_PAT }}" \
             -H "Accept: application/vnd.github+json" \

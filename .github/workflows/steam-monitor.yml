@@ -46,9 +46,9 @@ jobs:
             echo "→ 変化あり、通知します"
 
             # 通知を送る (Discord Webhook)
-            # curl -s -X POST "${{ secrets.DISCORD_WEBHOOK_URL }}" \
-            #   -H "Content-Type: application/json" \
-            #   -d "{\"content\": \"🔔 Steamスレッドの投稿数が増えました！ 現在: $COUNT 件\\n$URL\"}"
+            curl -s -X POST "${{ secrets.DISCORD_WEBHOOK_URL }}" \
+              -H "Content-Type: application/json" \
+              -d "{\"content\": \"🔔 Steamスレッドの投稿数が増えました！ 現在: $COUNT 件\\n$URL\"}"
           done
 
           # 投稿数をまとめて保存する

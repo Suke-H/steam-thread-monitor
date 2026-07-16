@@ -6,11 +6,20 @@ on:
     - cron: '0 0 * * *'  # 毎日UTC 0:00（日本時間 9:00）
   workflow_dispatch:       # 手動実行も可能
 
+concurrency:
+  group: steam-thread-monitor
+  cancel-in-progress: false
+
 jobs:
   check:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Fetch post counts
         id: fetch
         run: |
@@ -38,7 +47,8 @@ jobs:
         id: compare
         run: |
           IFS=',' read -ra COUNTS <<< "${{ steps.fetch.outputs.counts }}"
-          IFS=',' read -ra PREVS <<< "${{ vars.LAST_POST_COUNTS }}"
+          PREV_STR=$(jq -r '.counts // ""' data/last_post_counts.json 2>/dev/null || echo "")
+          IFS=',' read -ra PREVS <<< "$PREV_STR"
           CHANGED_URLS=()
           CHANGED_COUNTS=()
           IFS=',' read -ra URLS <<< "${{ vars.STEAM_THREAD_URLS }}"
@@ -78,17 +88,11 @@ jobs:
         run: |
           NEW_COUNTS_STR="${{ steps.fetch.outputs.counts }}"
           echo "保存する投稿数: $NEW_COUNTS_STR"
-          RESPONSE=$(curl -s --max-time 10 -X PATCH \
-            -H "Authorization: token ${{ secrets.GH_PAT }}" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${{ github.repository }}/actions/variables/LAST_POST_COUNTS" \
-            -d "{\"name\":\"LAST_POST_COUNTS\",\"value\":\"$NEW_COUNTS_STR\"}")
-          echo "PATCH response: $RESPONSE"
-          if echo "$RESPONSE" | grep -q '"message"'; then
-            RESPONSE2=$(curl -s --max-time 10 -X POST \
-              -H "Authorization: token ${{ secrets.GH_PAT }}" \
-              -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/${{ github.repository }}/actions/variables" \
-              -d "{\"name\":\"LAST_POST_COUNTS\",\"value\":\"$NEW_COUNTS_STR\"}")
-            echo "POST response: $RESPONSE2"
-          fi
+          mkdir -p data
+          printf '{"counts":"%s","checked_at":"%s"}\n' \
+            "$NEW_COUNTS_STR" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > data/last_post_counts.json
+          git config user.name "Suke-H"
+          git config user.email "34861353+Suke-H@users.noreply.github.com"
+          git add data/last_post_counts.json
+          git commit -m "chore: checked post counts ($NEW_COUNTS_STR)"
+          git push

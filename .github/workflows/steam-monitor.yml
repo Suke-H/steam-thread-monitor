@@ -96,9 +96,9 @@ jobs:
           git add data/last_post_counts.json
           TODAY=$(TZ='Asia/Tokyo' date +%Y-%m-%d)
           if [ -n "${{ steps.compare.outputs.changed_urls }}" ]; then
-            MSG="Scheduled run ($TODAY): New post arrived! 🆕"
+            MSG="🆕 Scheduled run ($TODAY): New post arrived!"
           else
-            MSG="Scheduled run ($TODAY): No new post arrived 💤"
+            MSG="💤 Scheduled run ($TODAY): No new post arrived"
           fi
           git commit -m "$MSG"
           git push

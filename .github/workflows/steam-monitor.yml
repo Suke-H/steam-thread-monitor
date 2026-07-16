@@ -90,7 +90,7 @@ jobs:
           echo "保存する投稿数: $NEW_COUNTS_STR"
           mkdir -p data
           printf '{"counts":"%s","checked_at":"%s"}\n' \
-            "$NEW_COUNTS_STR" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > data/last_post_counts.json
+            "$NEW_COUNTS_STR" "$(TZ='Asia/Tokyo' date +%Y-%m-%dT%H:%M:%S+09:00)" > data/last_post_counts.json
           git config user.name "Suke-H"
           git config user.email "34861353+Suke-H@users.noreply.github.com"
           git add data/last_post_counts.json
